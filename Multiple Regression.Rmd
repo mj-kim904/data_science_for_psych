@@ -1,0 +1,199 @@
+---
+title: "Multiple Regression"
+author: "Minjeong Kim"
+date: "2022-07-21"
+output: html_document
+---
+
+<style type="text/css">
+
+body, td {
+   font-family: times, serif; font-size: 14px;
+}
+code.r{
+  font-family: times, serif; font-size: 12px;
+}
+pre {
+  font-family: times, serif; font-size: 12px
+}
+</style>
+
+# {.tabset .tabset-fade .tabset-pills}
+## Preprocess
+```{r Load necessary packages}
+library(psych)
+library(car)
+library(mvoutlier)
+library(lm.beta)
+library(ppcor)
+library(haven)
+```
+
+**About Data**
+This is a mock data set(.sav) created for educational purposes. These imaginary data were collected to examine the correlates of affective forecasting, which is a person predicting their future affective or emotional state with respect to some socially interesting outcome. 
+Research on affective forecasting has shown that people routinely mispredict their future affective states, usually by predicting more extreme effects than they actually experience (Wilson & Gilbert, 2000). Two possible explanatory variables for affective misprediction have also been identified: (a) focalism and (b) emotional intelligence. However, the literature is unclear as to how these variables might operate relative to each other because no one has examined both focalism and emotional intelligence in the same research design. Additionally, there is reason to believe that people’s current moods may play some role in affective misprediction. 
+The outcome variable of interest is how happy students predicted being when they went on summer vacation (called Happy in the data file). The 3 predictor variables of interest are also in the datafile: focalism (Focus), emotional intelligence (SREISavg), and current mood (Enjoy). Enjoy, HAppy, and Focus are all measured on 1  to 11 Likert scales, and SREISavg is measured on a 1 to 5 Likert scale.
+
+```{r Working Directory, include=FALSE}
+setwd("D:/MJ/Job/Job 2022/Code Sample_ Minjeong Kim")
+```
+
+**Import data file**
+
+```{r Import datafile}
+AF.data <- read_sav("data_AffectiveForcasting.sav")
+```
+
+**Data Screening**
+```{r data inspection}
+summary(AF.data)
+#Detecting missing values in predictors
+which(rowSums(is.na(AF.data[,c(3:7)]))>0)
+```
+
+These data contain missing values on the variables that will be analyzed so that the missing data were removed.
+
+```{r Removing missing data}
+#Remove missing data
+listwise.AF = na.exclude(AF.data[c(3:6)])
+
+#Rearrange the columns of the data frame
+listwise.AF = listwise.AF[,c(2,1,3,4)]
+
+```
+
+Checking if all data are in their respective measured ranges.
+
+```{r Requesting descriptives on the data}
+
+describe(listwise.AF, na.rm=F)
+multi.hist(listwise.AF)
+
+# The maximum values of Enjoy, Happy, and Focus are all equal to 11.00 and the minimum values of all three are 1.00. The maximum value of SREISavg is 4.42 and the minimum value of it is 2.63. This indicates that all values are in their respective measured ranges.
+
+```
+
+## EDA
+
+Screening outliers using Cook's D.
+
+```{r Outlier secreening}
+#Cook's distance
+
+Happiness.lm = lm(Happy ~ Enjoy + Focus + SREISavg, data = listwise.AF)
+CooksD = cooks.distance(Happiness.lm)
+summary(CooksD)
+which(cooks.distance(Happiness.lm)>1.0)
+
+# The result of Cook's distance indicates that there is no outliers (Max=0.2128113 < 1.00).
+
+```
+
+
+Requesting zero-order correlation matrix to examine linearity of the outcome prediction and inter-predictors colinearity.
+
+```{r Requesting Zero-order Correlation}
+#Zero-order correlation
+
+CM.AF <- cor(listwise.AF)
+CM.AF
+
+#Inter-predictors correlation
+
+Predictors <- listwise.AF[,c(2,3,4)]
+cor(Predictors)
+
+# The results of zero-order correlation demonstrates that relationships between the predictors and the outcome is assumed to be linear. In addition, there is no inter-predictors correlation (*r* > 0.60) in these data.
+
+```
+
+
+
+Create a scatter plot	array	for	all	four	variables.
+
+```{r Creating a scatterplot array}
+plot(listwise.AF,  col = "magenta3")
+
+# The scatter plot shows that there is no curvilinear relationships for the variables in this data.
+
+```
+
+Requesting the variance inflation	factors	(VIFs) to aseess collinearity for the predictors.
+
+```{r Formal assessment of collinearity}
+vif(Happiness.lm)
+
+# Used the standard	of VIFs > 3	are considered collinear.
+# There is no collinearity among the predictors because there is no predictors with VIFs greater than 3 (Enjoy =1.044797, Focus = 1.073156, SREISavg = 1.058709).
+
+```
+
+
+Plotting residuals to assess the homogeneity of residuals with a scale-location plot.
+
+```{r Homogeneity of Residuals}
+
+plot(Happiness.lm)
+
+#The residuals approximately homogeneous. In the scale-location plot, the patterns of data on the left side is similar to the right side.
+```
+
+
+All the assumptions were checked. There was no assumption violated.
+
+
+## Multiple Regression
+
+Requesting the summary of multiple regression output
+
+```{r Multiple Regression Output}
+
+summary(Happiness.lm)
+
+```
+
+Checking the model fitting wiht R and R-squared values.
+
+```{r R values calculation}
+MultipleR2 = 0.3227
+R = sqrt(MultipleR2)
+
+#The multiple R (R^2^=.3227) indicataes that 32.27% of the variability in the outcome variable can be accounted for by the set of the predictor variables. This is not high enough value (R^2^< .60) for 'pure science' field. Yet, it is acceptable value regarding for this study that human behavior cannot be accurately predicted.
+
+```
+
+Calculating the expected value of R for the model under the null hypothesis.
+
+```{r Expected value of R}
+k=3
+N = 149
+Expected.R = k/(N-1)
+
+```
+
+Requesting the standardized beta coefficients for each predictor to examine which predictor contributes most to movement on the regression surface.
+
+```{r Requesting the Standardized Beta}
+
+lm.beta(Happiness.lm)
+
+```
+
+Requesting the semipartial coefficients for each predictor in the model to find which predictor is correlated with the outcome most strongly.
+
+```{r Requesting Semipartial Correlations}
+HappinessSpcor = spcor(listwise.AF)
+HappinessSpcor$estimate[1,]
+
+# Focalism is correlated with the affective forecasts most strongly (*r*=.459).
+
+```
+
+
+**Summary of Results** 
+
+A multiple regression analysis on affective forcasting showed a significant overall effect of the model, *F*(3, 145) = 23.03, *p* < .001, *R*^2^=.323.
+Specifically, focalism was positively correlated with the level of happiness, *b*=.354, *t*(145) = 6.711, *p* < .001, $r_{a(b.c)}$ =.459. This indicates that the predicted happiness of students was increased (affective forecasts) as focalism increased. Moreover, current mood correlated with affective forecasts, *b* = .271, *t*(145) = 3.712, *p* < .001, $r_{a(b.c)}$ = .254. This means that the increase of current mood was related to higher affective forecasts. Emotional intelligence was not found statistically significant (*p* < .05).
+
+The result of this study illustrates that focalism contributes to mis-prediction for future affective states. In particular, according to the result, focalism showed stronger association with affective forecasting as compared to other possible predictors in the study. Emotional intelligence was assumed to contribute to the affective forcasts by previous studies on affective forecasting. However, the result indicates that emotional intelligence is less likely to have impact on the affective forecasts. People's current moods, on the other hand, was found to be more likely to influence on the behavior of predicting more extreme affect as compared to emotional intelligence.
+
